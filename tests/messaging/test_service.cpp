@@ -19,6 +19,7 @@
 #include <qi/type/objecttypebuilder.hpp>
 #include <qi/os.hpp>
 #include <qi/application.hpp>
+#include <qi/testutils/testutils.hpp>
 #include <testsession/testsessionpair.hpp>
 #include <boost/optional/optional_io.hpp>
 
@@ -341,9 +342,24 @@ TEST(QiService, RemoteServiceRegistrationAfterDisconnection)
   qi::AnyObject barAsRemoteService = p.client()->service("Bar").value();
   ASSERT_TRUE(barAsRemoteService);
 
+  // The services are unregistered asynchronously when the provider closes.
+  // Watch the service directory itself: the client may be the provider (in
+  // direct mode), and it is the service directory that must have unregistered
+  // the service for the registration to be accepted again.
+  qi::Promise<void> barUnregistered;
+  p.sd()->serviceUnregistered.connect(
+    [=](unsigned int, const std::string& name) mutable {
+      // Only the first unregistration (the session pair also unregisters it
+      // when destroyed).
+      if (name == "Bar" && barUnregistered.future().isRunning())
+        barUnregistered.setValue(nullptr);
+    });
+
   // Disconnect the provider, it should unregister any related services
   server->close();
   qiLogVerbose() << "close finished";
+  // Wait for "Bar" to be unregistered before registering it again.
+  ASSERT_TRUE(test::finishesWithValue(barUnregistered.future()));
   qi::Future<void> fc = server->connect(test::url(*p.sd()));
   fc.wait(3000);
   if (fc.hasError())

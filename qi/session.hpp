@@ -166,7 +166,15 @@ namespace qi {
     /// preference as defined by the `qi::isPreferredEndpoint` binary predicate.
     std::vector<qi::Url> endpoints() const;
 
-    //close both client and server side
+    /// Closes both the client and the server side of the session.
+    ///
+    /// The services registered by the session are unregistered from the
+    /// service directory asynchronously: they may still be registered when the
+    /// returned future finishes (e.g. if a gateway is between the session and
+    /// the service directory). An application that registers the same services
+    /// again right after reconnecting can wait for the `serviceUnregistered`
+    /// signal before, or retry the registration if it is rejected because the
+    /// service is "already registered".
     qi::FutureSync<void>    close();
 
     //this create a listen and create a service directory
