@@ -1,6 +1,18 @@
 libqi
 =====
 
+.. warning::
+  **Unofficial fork.** This repository is a community fork of
+  `aldebaran/libqi <https://github.com/aldebaran/libqi>`_. It is **not affiliated
+  with, endorsed by, or supported by** Aldebaran, SoftBank Robotics or United
+  Robotics Group. It is maintained on a best-effort basis: fixes are made when
+  I need them, with no guarantee of support or updates. NAO and Pepper are
+  trademarks of their respective owners.
+
+  It currently is a snapshot of upstream libqi 4.0.5, used as the libqi
+  dependency for building
+  `funwithagents/libqi-python <https://github.com/funwithagents/libqi-python>`_.
+
 libqi is a middle-ware C++ framework that provides RPC, type-erasure,
 cross-language interoperability, OS abstractions, logging facilities,
 asynchronous task management, dynamic module loading.
@@ -172,3 +184,10 @@ You can then run the program with:
 
   ./myservice --qi-standalone # for a standalone server.
   ./myservice --qi-url tcp://somemachine:9559 # to connect to an existing group of sessions.
+
+License
+-------
+
+BSD-3-Clause, same as upstream. See ``COPYING``.
+
+Original code © Aldebaran Robotics / SoftBank Robotics Europe.
