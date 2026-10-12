@@ -55,6 +55,11 @@ do                                                                             \
  PERSIST_CHECK(code, cond, EXPECT_TRUE, msdelay)
 #define PERSIST(code, cond, msdelay)  \
   PERSIST_CHECK(code, cond, (void),msdelay)
+// The services are unregistered asynchronously by the service directory (e.g.
+// when their session closes), which can take more than a second behind a
+// gateway on a loaded machine.
+static const auto serviceUnregistrationTimeout = std::chrono::milliseconds{5000};
+
 //check for server closed
 //check for socket disconnected
 //check for service unregistered
@@ -78,7 +83,7 @@ TEST(QiService, RemoteObjectCacheServerClose)
 
   p.server()->close();
 
-  PERSIST_ASSERT(fut = p.client()->service("serviceTest"), fut.hasError(), std::chrono::milliseconds{1000});
+  PERSIST_ASSERT(fut = p.client()->service("serviceTest"), fut.hasError(), serviceUnregistrationTimeout);
 }
 
 
@@ -99,7 +104,7 @@ TEST(QiService, RemoteObjectCacheUnregister)
 
   p.server()->unregisterService(idx);
 
-  PERSIST_ASSERT(fut = p.client()->service("serviceTest"), fut.hasError(), std::chrono::milliseconds{1000});
+  PERSIST_ASSERT(fut = p.client()->service("serviceTest"), fut.hasError(), serviceUnregistrationTimeout);
 
 }
 
@@ -121,7 +126,7 @@ TEST(QiService, RemoteObjectCacheABAUnregister)
 
   p.server()->unregisterService(idx);
 
-  PERSIST_ASSERT(fut = p.client()->service("serviceTest"), fut.hasError(), std::chrono::milliseconds{1000});
+  PERSIST_ASSERT(fut = p.client()->service("serviceTest"), fut.hasError(), serviceUnregistrationTimeout);
 
   unsigned int idx2 = p.server()->registerService("serviceTest", obj).value();
   //new service should not have a previoulsy registered ID
@@ -159,7 +164,7 @@ TEST(QiService, RemoteObjectCacheABANewServer)
 
   p.server()->close();
 
-  PERSIST_ASSERT(fut = p.client()->service("serviceTest"), fut.hasError(), std::chrono::milliseconds{1000});
+  PERSIST_ASSERT(fut = p.client()->service("serviceTest"), fut.hasError(), serviceUnregistrationTimeout);
 
   qi::Future<void> f = ses->connect(p.client()->url().str());
   f.wait(8000);
