@@ -299,6 +299,11 @@ namespace qi {
     using State = boost::variant<DisconnectedState, ConnectingState, ConnectedState, DisconnectingState>;
     State _state;
 
+    // Error reply to the authentication request, received before the
+    // capabilities of the remote end (see `handleMessage`). Only accessed while
+    // handling the received messages, which are handled one at a time.
+    boost::optional<Message> _authenticationErrorBeforeCapabilities;
+
     bool mustTreatAsServerAuthentication(const Message& msg) const;
     bool handleCapabilityMessage(const Message& msg);
     bool handleNormalMessage(Message msg);
@@ -644,13 +649,28 @@ namespace qi {
     bool success = false;
     if (mustTreatAsServerAuthentication(msg) || msg.type() == Message::Type_Capability)
     {
-      if (msg.type() != Message::Type_Error)
+      if (msg.type() == Message::Type_Error)
       {
-        success = handleCapabilityMessage(msg);
+        // A server of an old version of libqi (e.g. NAOqi 2.1) does not know
+        // the authentication function: it replies with an error, and sends its
+        // capabilities in a separate message, which may arrive after the error.
+        // Keep the error until the capabilities arrive, so that it is handled
+        // as when it arrives after them. If the remote end closes the
+        // connection instead (e.g. the authentication failed), the connection
+        // fails as usual.
+        _authenticationErrorBeforeCapabilities = std::move(msg);
+        return true;
       }
+      success = handleCapabilityMessage(msg);
       if (success && msg.type() != Message::Type_Capability)
       {
         success = handleNormalMessage(std::move(msg));
+      }
+      if (success && _authenticationErrorBeforeCapabilities)
+      {
+        Message error = std::move(*_authenticationErrorBeforeCapabilities);
+        _authenticationErrorBeforeCapabilities = boost::none;
+        success = handleNormalMessage(std::move(error));
       }
     }
     else

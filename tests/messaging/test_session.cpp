@@ -10,9 +10,12 @@
 #include <future>
 #include <chrono>
 #include <thread>
+#include <array>
+#include <cstdint>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <boost/asio.hpp>
 #include <boost/optional.hpp>
 #include <boost/filesystem.hpp>
 
@@ -656,4 +659,127 @@ TEST(TestSession, EndpointsAreOrderedByPreference)
     return qi::isPreferredEndpoint(*toUri(u1), *toUri(u2));
   };
   EXPECT_THAT(endpoints, WhenSortedBy(isPreferredEndpoint, Eq(endpoints)));
+}
+
+namespace
+{
+  // Values of the qi network protocol.
+  const std::uint8_t messageTypeError = 3;
+  const std::uint8_t messageTypeCapability = 6;
+  const std::uint32_t serviceServer = 0;
+  const std::uint32_t serverFunctionAuthenticate = 8;
+
+  // Raw qi message, as sent on the network (header in little-endian).
+  std::string rawMessage(std::uint32_t id, std::uint8_t type, std::uint32_t service,
+                         std::uint32_t object, std::uint32_t action, const std::string& payload)
+  {
+    std::string msg;
+    const auto put32 = [&](std::uint32_t v) {
+      for (int i = 0; i < 4; ++i)
+        msg.push_back(static_cast<char>((v >> (8 * i)) & 0xff));
+    };
+    msg += "\x42\xde\xad\x42";                 // magic
+    put32(id);
+    put32(static_cast<std::uint32_t>(payload.size()));
+    msg += std::string("\x00\x00", 2);           // version
+    msg.push_back(static_cast<char>(type));
+    msg.push_back('\x00');                       // flags
+    put32(service);
+    put32(object);
+    put32(action);
+    return msg + payload;
+  }
+
+  std::string hexToBytes(const std::string& hex)
+  {
+    std::string bytes;
+    for (std::size_t i = 0; i + 1 < hex.size(); i += 2)
+      bytes.push_back(static_cast<char>(std::stoi(hex.substr(i, 2), nullptr, 16)));
+    return bytes;
+  }
+}
+
+// A server of an old version of libqi (e.g. NAOqi 2.1) does not know the
+// authentication function: it replies to the authentication request with an
+// error, and sends its capabilities in a separate message. The two messages can
+// arrive in any order; the client must go on with the connection in both cases.
+// This fake server sends them in the order that made the client close the
+// connection, with the messages of a NAOqi 2.1 server.
+TEST(TestSession, ConnectsToLegacyServerReplyingAuthenticationErrorBeforeCapabilities)
+{
+  namespace asio = boost::asio;
+  using tcp = asio::ip::tcp;
+  asio::io_context io;
+  tcp::acceptor acceptor(io, tcp::endpoint(asio::ip::address_v4::loopback(), 0));
+  const auto port = acceptor.local_endpoint().port();
+
+  // Set to true if the client goes on with the connection after the error (it
+  // sends its capabilities), to false if it closes the connection.
+  qi::Promise<bool> clientWentOn;
+  std::thread server([&] {
+    try
+    {
+      tcp::socket socket(io);
+      acceptor.accept(socket);
+      // Returns the id and type of the received message.
+      const auto readMessage = [&] {
+        std::array<unsigned char, 28> header;
+        asio::read(socket, asio::buffer(header));
+        const auto get32 = [&](std::size_t offset) {
+          std::uint32_t v = 0;
+          for (int i = 3; i >= 0; --i)
+            v = (v << 8) | header[offset + i];
+          return v;
+        };
+        std::vector<unsigned char> payload(get32(8));
+        asio::read(socket, asio::buffer(payload));
+        return std::make_pair(get32(4), header[14]);
+      };
+
+      // The client starts with the authentication request.
+      const auto authenticationId = readMessage().first;
+
+      // NAOqi 2.1 replies with an error, a string with signature "s".
+      const std::string error = "can't find service, address: {0.0.8}";
+      std::string errorPayload = hexToBytes("01000000") + "s";
+      for (int i = 0; i < 4; ++i)
+        errorPayload.push_back(static_cast<char>((error.size() >> (8 * i)) & 0xff));
+      errorPayload += error;
+      asio::write(socket, asio::buffer(rawMessage(authenticationId, messageTypeError,
+                                                  serviceServer, 0, serverFunctionAuthenticate,
+                                                  errorPayload)));
+      // Then its capabilities (ClientServerSocket, MessageFlags, MetaObjectCache).
+      asio::write(socket, asio::buffer(rawMessage(1, messageTypeCapability, serviceServer, 0, 0,
+        hexToBytes(
+          "0300000012000000436c69656e74536572766572536f636b65740100000062010c0000004d657373"
+          "616765466c6167730100000062010f0000004d6574614f626a6563744361636865010000006201"))));
+
+      while (true)
+      {
+        if (readMessage().second == messageTypeCapability)
+        {
+          clientWentOn.setValue(true);
+          return;
+        }
+      }
+    }
+    catch (const std::exception&)
+    {
+      // The client closed the connection.
+      clientWentOn.setValue(false);
+    }
+  });
+
+  auto session = qi::makeSession();
+  // The fake server does not go further than the capabilities: the connection
+  // eventually fails, that is not what this test checks.
+  auto connecting = session->connect("tcp://127.0.0.1:" + std::to_string(port));
+  auto wentOn = clientWentOn.future();
+  const auto state = wentOn.wait(qi::Seconds{5});
+  session->close();
+  connecting.wait();
+  server.join();
+
+  ASSERT_EQ(qi::FutureState_FinishedWithValue, state);
+  EXPECT_TRUE(wentOn.value()) << "the client closed the connection after the authentication error";
 }
