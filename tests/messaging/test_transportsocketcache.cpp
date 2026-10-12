@@ -202,7 +202,7 @@ TEST_F(TestTransportSocketCache, ReusesSocketOfServiceWithRelativeEndpoint)
 {
   using namespace qi;
 
-  ASSERT_TRUE(test::finishesWithValue(server_.listen("tcp://127.0.0.1:9559")));
+  ASSERT_TRUE(test::finishesWithValue(server_.listen("tcp://127.0.0.1:0")));
   const auto endpoint = server_.endpoints().front();
   const auto machineId = qi::os::getMachineId();
 
