@@ -14,6 +14,7 @@
 # include <ka/functional.hpp>
 # include <ka/errorhandling.hpp>
 # include <ka/macro.hpp>
+# include <ka/typetraits.hpp>
 # include <qi/api.hpp>
 # include <qi/assert.hpp>
 # include <qi/atomic.hpp>
@@ -447,9 +448,9 @@ namespace qi {
      */
     template <typename F>
     auto then(FutureCallbackType type, F&& func)
-        -> Future<typename std::result_of<F(Future<T>)>::type>
+        -> Future<ka::ResultOf<F(Future<T>)>>
     {
-      return thenRImpl<typename std::result_of<F(Future<T>)>::type, F>(type, std::forward<F>(func));
+      return thenRImpl<ka::ResultOf<F(Future<T>)>, F>(type, std::forward<F>(func));
     }
 
     /**
@@ -457,7 +458,7 @@ namespace qi {
      */
     template <typename AF>
     auto then(AF&& func)
-        -> Future<typename std::result_of<AF(Future<T>)>::type>
+        -> Future<ka::ResultOf<AF(Future<T>)>>
     {
       return this->then(FutureCallbackType_Auto, std::forward<AF>(func));
     }
@@ -500,9 +501,9 @@ namespace qi {
      */
     template <typename F>
     auto andThen(FutureCallbackType type, F&& func)
-        -> Future<typename std::decay<typename std::result_of<F(ValueType)>::type>::type>
+        -> Future<typename std::decay<ka::ResultOf<F(ValueType)>>::type>
     {
-      return this->andThenRImpl<typename std::decay<typename std::result_of<F(ValueType)>::type>::type, F>(type, std::forward<F>(func));
+      return this->andThenRImpl<typename std::decay<ka::ResultOf<F(ValueType)>>::type, F>(type, std::forward<F>(func));
     }
 
     /**
@@ -510,7 +511,7 @@ namespace qi {
      */
     template <typename AF>
     auto andThen(AF&& func)
-        -> Future<typename std::decay<typename std::result_of<AF(ValueType)>::type>::type>
+        -> Future<typename std::decay<ka::ResultOf<AF(ValueType)>>::type>
     {
       return this->andThen(FutureCallbackType_Auto, std::forward<AF>(func));
     }

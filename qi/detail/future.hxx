@@ -26,7 +26,7 @@ namespace detail {
   void setPromiseFromCall(Promise<R>& p, F&& f)
   {
     static_assert(
-          std::is_convertible<typename std::result_of<F()>::type, R>::value,
+          std::is_convertible<ka::ResultOf<F()>, R>::value,
           "function return type is incompatible with promise");
     p.setValue(f());
   }
