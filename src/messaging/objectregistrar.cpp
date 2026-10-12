@@ -51,10 +51,30 @@ namespace qi {
       boost::mutex::scoped_lock sl(_servicesMutex);
       services = _services;
     }
+    std::vector<qi::Future<void>> unregistrations;
     for (BoundServiceMap::reverse_iterator iter = services.rbegin();
         iter != services.rend();
         ++iter)
-      unregisterService(iter->first);
+      unregistrations.push_back(unregisterService(iter->first));
+
+    // Wait for the service directory to unregister the services before
+    // closing, so that once closed, registering the same services again (for
+    // instance after reconnecting) is not rejected because they are still
+    // registered. The wait is bounded: if the service directory cannot be
+    // reached, the unregistrations fail immediately, and if it does not answer
+    // in time, the services are unregistered when it detects the disconnection.
+    const auto unregistrationTimeout = qi::Seconds{2};
+    const auto deadline = qi::SteadyClock::now() + unregistrationTimeout;
+    for (auto& unregistration : unregistrations)
+    {
+      if (unregistration.wait(deadline) == qi::FutureState_Running)
+      {
+        qiLogVerbose() << "The service directory did not acknowledge the unregistration of the "
+                          "services in time, closing anyway.";
+        break;
+      }
+    }
+
     Server::close().value();
   }
 
