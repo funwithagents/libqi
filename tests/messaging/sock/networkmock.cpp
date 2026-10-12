@@ -18,24 +18,9 @@ namespace mock
   N::acceptor_type::_anyAsyncAccepter N::acceptor_type::async_accept = defaultAsyncAccept;
   std::atomic_bool N::resultOfTrySetCipherListTls12AndBelow(true);
 
-  template <>
-  N::_anyAsyncReaderSocket<N::ssl_socket_type>
-      N::SocketFunctions<N::ssl_socket_type>::_async_read_socket =
-          defaultAsyncReadSocket<N::ssl_socket_type>;
-  template <>
-  N::_anyAsyncReaderSocket<qi::sock::SocketWithContext<N>>
-      N::SocketFunctions<qi::sock::SocketWithContext<N>>::_async_read_socket =
-          defaultAsyncReadSocket<qi::sock::SocketWithContext<N>>;
+  // The socket functions (SocketFunctions<...>::_async_read_socket and
+  // _async_write_socket) are defined in the header.
   N::_anyAsyncReaderNextLayer N::_async_read_next_layer = defaultAsyncReadNextLayer;
-
-  template <>
-  N::_anyAsyncWriterSocket<N::ssl_socket_type>
-      N::SocketFunctions<N::ssl_socket_type>::_async_write_socket =
-          defaultAsyncWriteSocket<N::ssl_socket_type>;
-  template <>
-  N::_anyAsyncWriterSocket<qi::sock::SocketWithContext<N>>
-      N::SocketFunctions<qi::sock::SocketWithContext<N>>::_async_write_socket =
-          defaultAsyncWriteSocket<qi::sock::SocketWithContext<N>>;
   N::_anyAsyncWriterNextLayer N::_async_write_next_layer = defaultAsyncWriteNextLayer;
 
   N::_anyApplyClientConfig N::_applyClientConfig = defaultApplyClientConfig;
