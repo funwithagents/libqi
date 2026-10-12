@@ -27,12 +27,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Windows is not tested yet: the tests do not build with MSVC.
         include:
           - name: linux-x86_64
             os: ubuntu-24.04
+            cppstd: gnu17
           - name: macos-arm64
             os: macos-15
+            cppstd: gnu17
+          - name: windows-x64
+            os: windows-2025
+            # MSVC does not support the GNU extensions.
+            cppstd: "17"
+    defaults:
+      run:
+        # Git Bash on Windows.
+        shell: bash
     steps:
       - uses: actions/checkout@v7
 
@@ -51,7 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           conan profile detect --exist-ok
-          conan install . --build=missing -s build_type=Release -s compiler.cppstd=gnu17 \
+          conan install . --build=missing -s build_type=Release -s compiler.cppstd=${{ matrix.cppstd }} \
             -c tools.files.download:retry=5 -c tools.files.download:retry_wait=20 \
             -c "tools.cmake.cmake_layout:build_folder_vars=['const.ci', '!settings.build_type']"
 
@@ -66,12 +75,21 @@ jobs:
         run: |
           cmake -S . -B build/ci \
             -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/ci/generators/conan_toolchain.cmake" \
-            -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DWITH_BOOST_LOCALE=ON
-          cmake --build build/ci --parallel 4
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_CONFIGURATION_TYPES=Release \
+            -DBUILD_TESTING=ON -DWITH_BOOST_LOCALE=ON
+          cmake --build build/ci --config Release --parallel 4
 
       # The Conan run environment puts the dependencies shared libraries in the
-      # library path.
+      # library path (PATH on Windows).
       - name: Test
+        if: runner.os != 'Windows'
         run: |
           source build/ci/generators/conanrun.sh
-          ctest --test-dir build/ci --output-on-failure --test-output-size-failed 10000000
+          ctest --test-dir build/ci -C Release --output-on-failure --test-output-size-failed 10000000
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call build\ci\generators\conanrun.bat
+          ctest --test-dir build\ci -C Release --output-on-failure --test-output-size-failed 10000000
