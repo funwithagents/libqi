@@ -395,9 +395,25 @@ namespace ka {
   template<typename Base, typename Derived>
   using EnableIfNotBaseOf = EnableIf<! std::is_base_of<Base, Decay<Derived>>::value>;
 
-  /// Behave exactly as the std::result_of_t of C++14.
+  namespace detail {
+    template<typename Sig>
+    struct result_of_sig;
+
+    // Decomposing the signature, instead of passing its types directly to
+    // `std::invoke_result`, gives exactly the semantics of `std::result_of`:
+    // the parameter types of a function type are adjusted (e.g. top-level
+    // `const` is removed, arrays decay to pointers).
+    template<typename F, typename... Args>
+    struct result_of_sig<F(Args...)> : std::invoke_result<F, Args...> {};
+  } // namespace detail
+
+  /// Result type of invoking `F` with arguments of types `Args...`, where `T`
+  /// is the signature `F(Args...)`.
+  ///
+  /// Behave exactly as the std::result_of_t of C++14 (deprecated in C++17 and
+  /// removed in C++20).
   template<typename T>
-  using ResultOf = typename std::result_of<T>::type;
+  using ResultOf = typename detail::result_of_sig<T>::type;
 
   /// Behave exactly as the std::remove_pointer_t of C++14.
   template<typename T>
