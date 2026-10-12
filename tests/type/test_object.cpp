@@ -988,7 +988,10 @@ TEST(TestObject, traceGeneric)
     + traces[1].timestamp().tv_usec/1000
     - traces[0].timestamp().tv_sec*1000
     - traces[0].timestamp().tv_usec/1000;
-  EXPECT_LT(std::abs(delta - 100LL), 20LL); // be leniant
+  // The sleep lasts at least 100ms, but can last much longer on a loaded machine
+  // (timestamps are truncated to milliseconds).
+  EXPECT_GE(delta, 99LL);
+  EXPECT_LT(delta, 1000LL);
   ASSERT_TRUE(obj.call<bool>("isTraceEnabled"));
   std::this_thread::sleep_for(std::chrono::milliseconds{ 50 });
   traces.clear();

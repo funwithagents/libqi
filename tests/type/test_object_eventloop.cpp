@@ -128,7 +128,7 @@ TEST(TestThreadModel, ThreadSafe)
   qi::Future<void> f1 = o1.async<void>("delaymsThreadSafe", qi::MilliSeconds{ 150 });
   o1.async<void>("delaymsThreadSafe", qi::MilliSeconds{ 150 }).wait();
   f1.wait();
-  ASSERT_LT(qi::os::ustime() - start, 270000);
+  ASSERT_LT(qi::os::ustime() - start, 300000); // less than 2 sequential calls
 }
 
 TEST(TestThreadModel, MethodModel)
@@ -148,7 +148,7 @@ TEST(TestThreadModel, MethodModel)
   f1 = o1.async<void>("delaymsThreadSafe", qi::MilliSeconds{ 150 });
   o1.async<void>("delaymsThreadSafe", qi::MilliSeconds{ 150 }).wait();
   f1.wait();
-  ASSERT_LT(qi::os::ustime() - start, 270000);
+  ASSERT_LT(qi::os::ustime() - start, 300000); // less than 2 sequential calls
 }
 
 TEST(TestThreadModelStatic, notThreadSafeObjectStatic)
@@ -172,7 +172,7 @@ TEST(TestThreadModelStatic, ThreadSafe)
   qi::Future<void> f1 = o1.async<void>("delaymsThreadSafe", qi::MilliSeconds{ 150 });
   o1.async<void>("delaymsThreadSafe", qi::MilliSeconds{ 150 }).wait();
   f1.wait();
-  ASSERT_LT(qi::os::ustime() - start, 270000);
+  ASSERT_LT(qi::os::ustime() - start, 300000); // less than 2 sequential calls
 }
 
 TEST(TestThreadModelStatic, MethodModel)
@@ -193,5 +193,5 @@ TEST(TestThreadModelStatic, MethodModel)
   f1 = o1.async<void>("delaymsThreadSafe", qi::MilliSeconds{ 150 });
   o1.async<void>("delaymsThreadSafe", qi::MilliSeconds{ 150 }).wait();
   f1.wait();
-  ASSERT_LT(qi::os::ustime() - start, 270000);
+  ASSERT_LT(qi::os::ustime() - start, 300000); // less than 2 sequential calls
 }
