@@ -6,8 +6,12 @@
 #include <qi/jsoncodec.hpp>
 #include <qi/anyvalue.hpp>
 #include <iterator>
-#include <boost/lexical_cast.hpp>
+#include <cerrno>
+#include <clocale>
+#include <cmath>
+#include <cstdlib>
 #include <cwchar>
+#include <stdexcept>
 #ifdef WITH_BOOST_LOCALE
 // Disable deprecation warnings about `std::auto_ptr`.
 #  define BOOST_LOCALE_HIDE_AUTO_PTR
@@ -152,7 +156,26 @@ namespace qi {
     else
       floatStr = beforePoint + exponent;
 
-    result = boost::lexical_cast<double>(floatStr.c_str());
+    // Do not use boost::lexical_cast (std::istream): libc++ fails on valid
+    // subnormal numbers (e.g. the minimal positive double), because strtod
+    // reports an underflow for them.
+    // floatStr has been validated above, it only has to use the decimal point
+    // of the C locale used by strtod.
+    const char* decimalPoint = std::localeconv()->decimal_point;
+    if (decimalPoint && decimalPoint[0] != '\0' && decimalPoint[0] != '.')
+    {
+      const auto point = floatStr.find('.');
+      if (point != std::string::npos)
+        floatStr.replace(point, 1, decimalPoint);
+    }
+    errno = 0;
+    char* end = nullptr;
+    const double value = std::strtod(floatStr.c_str(), &end);
+    // Underflows (subnormal numbers, or rounded to 0) are accepted, overflows
+    // are not.
+    if (end != floatStr.c_str() + floatStr.size() || (errno == ERANGE && std::isinf(value)))
+      throw std::runtime_error("invalid floating point number: " + floatStr);
+    result = value;
     return true;
   }
 

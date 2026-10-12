@@ -316,6 +316,10 @@ TEST(DecodeJSON, Float) {
   EXPECT_DOUBLE_ROUNDTRIP(std::numeric_limits<double>::min());
   EXPECT_DOUBLE_ROUNDTRIP(std::numeric_limits<double>::lowest());
   EXPECT_DOUBLE_ROUNDTRIP(std::numeric_limits<double>::denorm_min());
+  // Subnormal numbers, or numbers rounded to 0, are decoded; overflows are not.
+  EXPECT_EQ(1e-310, qi::decodeJSON("1e-310").to<double>());
+  EXPECT_EQ(0., qi::decodeJSON("1e-400").to<double>());
+  EXPECT_ANY_THROW(qi::decodeJSON("1e400"));
 }
 
 TEST(DecodeJSON, Array) {
