@@ -1,6 +1,11 @@
 libqi Change Log
 =================
 
+libqi 4.0.7
+-----------
+
+This minor release fixes the build on Windows with MSVC.
+
 libqi 4.0.6
 -----------
 
