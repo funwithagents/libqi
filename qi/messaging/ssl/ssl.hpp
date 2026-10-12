@@ -166,7 +166,6 @@ struct QI_API PemPasswordCallback
   ///   passphrase.
   ///
   /// @see `PEM_read_bio_X509`
-  QI_API
   static PemPasswordCallback fromPassphrase(const char* passphrase) noexcept;
 };
 
@@ -398,7 +397,6 @@ public:
   ///
   /// @see `BIO_new_file`
   /// @throws `Error` if the BIO could not be created.
-  QI_API
   static BIO fromFile(boost::filesystem::path path, const char* mode = "r");
 
   /// Returns the memory data for this BIO.
@@ -475,7 +473,6 @@ public:
   ///
   /// @throws `Error` if the file could not be read or if a private key header was found but the
   /// content could not be read.
-  QI_API
   static inline boost::optional<PKey> privateFromPemFile(boost::filesystem::path path,
                                                          const char* mode = "r",
                                                          PemPasswordCallback cb = {})
@@ -547,7 +544,6 @@ public:
   ///
   /// @throws `Error` if the file could not be read or if a X509 certificate header was found but
   /// the content could not be read.
-  QI_API
   static inline boost::optional<Certificate> fromPemFile(boost::filesystem::path path,
                                                          const char* mode = "r",
                                                          bool trusted = false,
@@ -564,7 +560,6 @@ public:
   ///
   /// An optional PEM password callback may be passed to decrypt the content of the PEM.
   /// @throws `Error` if a X509 certificate header was found but the content could not be read.
-  QI_API
   static inline std::vector<Certificate> chainFromPemFile(boost::filesystem::path path,
                                                           PemPasswordCallback cb = {})
   {
