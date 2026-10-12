@@ -282,6 +282,8 @@ void TransportSocketCache::onSocketParallelConnectionAttempt(Future<void> fut,
                                                              Uri uri,
                                                              const ServiceInfo& info)
 {
+  // Set once the socket is fully registered in the cache (see below).
+  Promise<MessageSocketPtr> connectedPromise;
   {
     boost::mutex::scoped_lock lock(_socketMutex);
 
@@ -341,13 +343,25 @@ void TransportSocketCache::onSocketParallelConnectionAttempt(Future<void> fut,
         track([=](const std::string&) { onSocketDisconnected(uri, info); }, this));
     attempt->state = State_Connected;
     attempt->endpoint = socket;
-    attempt->promise.setValue(socket);
     attempt->disconnectionTracking = disconnectionTracking;
+    connectedPromise = attempt->promise;
   }
 
   // Associate the same socket to the relative URI of the service, so that we may reuse the same
   // socket if another service has this relative URI as one of its endpoints.
   insert(info.machineId(), *qi::uri(std::string(uriQiScheme()) + ":" + info.name()), socket);
+
+  // Only publish the socket once the relative URI is registered: otherwise, a request for a service
+  // reachable through this relative URI, made as soon as the socket is published, would not find it.
+  try
+  {
+    connectedPromise.setValue(socket);
+  }
+  catch (const FutureException&)
+  {
+    // The promise has already been set: the cache was closed in the meantime, and the connection
+    // attempt destroyed with an error.
+  }
   qiLogDebug() << "Connected to service #" << info.serviceId() << " through uri " << uri
                << " and socket " << socket.get();
 }
