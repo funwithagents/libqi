@@ -107,7 +107,9 @@ public:
   using Filepaths = boost::variant<ka::unit_t, TlsFilepaths, MTlsFilepaths>;
 
   /// The configuration of a service directory proxy. It contains any parameter a proxy can handle.
-  struct Config
+  // Exported on its own: with MSVC, exporting the enclosing class does not
+  // export the members of its nested classes.
+  struct QI_API Config
   {
     /// The URL of the service directory to act as a proxy of. It is used at construction or opening
     /// to connect the service directory client part of the proxy.
