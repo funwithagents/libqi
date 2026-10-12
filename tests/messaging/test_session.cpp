@@ -38,7 +38,9 @@ namespace
   static const auto defaultWaitLoopDuration = std::chrono::microseconds{ 50 };
   static const auto defaultWaitServiceDuration = qi::MilliSeconds{ 500 };
   static const auto dummyServiceName = "serviceTest";
-  static const auto invalidUrl = "invalid url";
+  // An unsupported scheme, so that connecting fails without any DNS lookup (resolving an
+  // invalid host name can take several seconds, e.g. on macOS).
+  static const auto invalidUrl = "invalid://url";
 
   struct SessionSequencer : Trackable<SessionSequencer>
   {
