@@ -292,6 +292,11 @@ target_link_libraries(
 add_library(qi_objects OBJECT)
 add_library(qi::internal::qi_objects ALIAS qi_objects)
 
+# The objects are linked into the `qi` shared library: export its symbols
+# (`QI_API`). CMake only defines `qi_EXPORTS` for the `qi` target itself, not
+# for this object library, which makes MSVC import the symbols instead.
+target_compile_definitions(qi_objects PRIVATE qi_EXPORTS)
+
 target_sources(
   qi_objects
 
