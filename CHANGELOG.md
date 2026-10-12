@@ -1,6 +1,12 @@
 libqi Change Log
 =================
 
+libqi 4.0.6
+-----------
+
+This minor release fixes a build error with recent Clang versions (Clang 17+,
+Xcode 16.3+).
+
 libqi 4.0.5
 -----------
 
