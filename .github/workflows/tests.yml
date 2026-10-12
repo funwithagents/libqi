@@ -1,0 +1,94 @@
+# Builds libqi with its test suite and runs it.
+name: Tests
+
+on:
+  pull_request:
+    branches:
+      - master
+  # Also on master, so that the Conan cache it saves can be used by the pull
+  # requests (a cache saved by a pull request is only visible to itself).
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+# A new push on a pull request cancels its run still in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is not tested yet: the tests do not build with MSVC.
+        include:
+          - name: linux-x86_64
+            os: ubuntu-24.04
+          - name: macos-arm64
+            os: macos-15
+            # Fails on macOS only, see below.
+            gtest_exclude_os: :DecodeJSON.Float
+    env:
+      # Tests failing because of known library bugs, to fix:
+      # - QiService.RemoteServiceRegistrationAfterDisconnection: Session::close()
+      #   does not wait for the service directory to unregister the services, so
+      #   registering them again right after reconnecting can be rejected.
+      # - Ssl*: with OpenSSL 3, reading a PEM without a private key throws
+      #   instead of returning no key.
+      # - TestTransportSocketCache.ReusesSocketOfServiceWithRelativeEndpoint:
+      #   the socket is published before its relative endpoint is registered.
+      # - DecodeJSON.Float (macOS): subnormal numbers fail to decode with libc++.
+      GTEST_EXCLUDE: >-
+        QiService.RemoteServiceRegistrationAfterDisconnection:SslBIOReadPrivateKey.IgnoresOtherHeaders:SslPKeyPrivateFromFile.NoKey:SslPKeyPrivateFromRange.NoKey:TestTransportSocketCache.ReusesSocketOfServiceWithRelativeEndpoint
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Conan
+        run: pipx install 'conan>=2'
+
+      # Saved even if the build fails (see below), so that the dependencies
+      # already built are not rebuilt on the next run.
+      - name: Restore Conan packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.conan2/p
+          key: conan-tests-${{ matrix.name }}-${{ hashFiles('conanfile.py') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: conan-tests-${{ matrix.name }}-${{ hashFiles('conanfile.py') }}-
+
+      - name: Install dependencies
+        run: |
+          conan profile detect --exist-ok
+          conan install . --build=missing -s build_type=Release -s compiler.cppstd=gnu17 \
+            -c tools.files.download:retry=5 -c tools.files.download:retry_wait=20 \
+            -c "tools.cmake.cmake_layout:build_folder_vars=['const.ci', '!settings.build_type']"
+
+      - name: Save Conan packages
+        if: success() || failure()
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.conan2/p
+          key: conan-tests-${{ matrix.name }}-${{ hashFiles('conanfile.py') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Build
+        run: |
+          cmake -S . -B build/ci \
+            -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/ci/generators/conan_toolchain.cmake" \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DWITH_BOOST_LOCALE=ON
+          cmake --build build/ci --parallel 4
+
+      # The Conan run environment puts the dependencies shared libraries in the
+      # library path.
+      - name: Test
+        env:
+          GTEST_FILTER: -${{ env.GTEST_EXCLUDE }}${{ matrix.gtest_exclude_os }}
+        run: |
+          source build/ci/generators/conanrun.sh
+          ctest --test-dir build/ci --output-on-failure --test-output-size-failed 10000000

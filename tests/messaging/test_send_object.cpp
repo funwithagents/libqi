@@ -818,9 +818,13 @@ namespace {
           the durations. In particular we check that removing remote objects has no effects on
           measured durations.
        9. Checks that A, B and C are of the same order of magnitude (no great variations).
+
+       The durations are sub-millisecond, so a single measure can easily double on a loaded machine
+       (e.g. a CI runner): medians of several measures are compared, with an absolute tolerance.
     */
 
     qi::AnyObject s = clientSession->service("RemotePerformanceService").value();
+    s.call<void>("setMeasureCount", 20);
 
     using nanosecs = RemotePerformanceService::nanosecs;
 
@@ -866,23 +870,29 @@ namespace {
     static const std::int64_t tolerableVariationFactor = 10;
 #endif
 
-    static const auto smallestPossibleMeasure = nanosecs{1}; // To avoid comparing with 0.
-    const auto referenceMeasure = *std::max_element(test1_ns.begin(), test1_ns.end());
-    const auto highestTolerableCallTime = std::max(referenceMeasure * tolerableVariationFactor, smallestPossibleMeasure);
+    // Absolute tolerance, so that the jitter of sub-millisecond measures cannot make the test fail.
+    static const auto tolerableAbsoluteVariation = nanosecs{5'000'000}; // 5 ms
+
+    static const auto median = [](std::vector<nanosecs> measures) {
+      const auto middle = measures.begin() + measures.size() / 2;
+      std::nth_element(measures.begin(), middle, measures.end());
+      return *middle;
+    };
+
+    const auto referenceMeasure = median(test1_ns);
+    const auto highestTolerableCallTime = std::max(referenceMeasure * tolerableVariationFactor,
+                                                   referenceMeasure + tolerableAbsoluteVariation);
     const auto highestTolerableCallTimeMs = asMillisecsInt(highestTolerableCallTime);
 
     const auto testMeasures = [&](const std::vector<nanosecs>& measures, std::string message) {
-      int idx = 0;
-      for (auto&& measure : measures)
-      {
-        EXPECT_LE(measure, highestTolerableCallTime) << message
-          << ": Measure " << idx << " : "
-          << asMillisecsInt(measure) << " ms / "
-          << highestTolerableCallTimeMs << " ms"
-          << " which is " << std::setw(6) << std::setprecision(3)
-          << ratioAsPercent(measure, highestTolerableCallTime) << "% greater duration than tolerable.";
-        ++idx;
-      }
+      ASSERT_FALSE(measures.empty()) << message;
+      const auto measure = median(measures);
+      EXPECT_LE(measure, highestTolerableCallTime) << message
+        << ": Median measure: "
+        << asMillisecsInt(measure) << " ms / "
+        << highestTolerableCallTimeMs << " ms"
+        << " which is " << std::setw(6) << std::setprecision(3)
+        << ratioAsPercent(measure, highestTolerableCallTime) << "% greater duration than tolerable.";
     };
 
     testMeasures(test2_ns, "With a lot of remote objects");
