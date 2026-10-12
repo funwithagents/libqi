@@ -5,6 +5,8 @@
 
 #include <openssl/bio.h>
 #include <openssl/err.h>
+#include <openssl/pem.h>
+#include <cstring>
 #include <qi/messaging/ssl/ssl.hpp>
 #include <qi/log.hpp>
 
@@ -99,9 +101,47 @@ boost::optional<Certificate>
   return Certificate(x509);
 }
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+namespace
+{
+// Returns true if, from the current position of the BIO, there is a PEM block
+// whose label ends with "PRIVATE KEY", or PEM data that cannot be read. Returns
+// false if the end of the data is reached without finding such a block.
+// The blocks are not decoded, so no password is asked.
+bool hasPemPrivateKeyBlock(::BIO* bio)
+{
+  static const char suffix[] = "PRIVATE KEY";
+  const std::size_t suffixLength = sizeof(suffix) - 1;
+  while (true)
+  {
+    char* name = nullptr;
+    char* header = nullptr;
+    unsigned char* data = nullptr;
+    long length = 0;
+    if (::PEM_read_bio(bio, &name, &header, &data, &length) != 1)
+    {
+      const auto err = ::ERR_peek_last_error();
+      return !(ERR_GET_LIB(err) == ERR_LIB_PEM && ERR_GET_REASON(err) == PEM_R_NO_START_LINE);
+    }
+    const std::size_t nameLength = std::strlen(name);
+    const bool isPrivateKey = nameLength >= suffixLength
+      && std::strcmp(name + nameLength - suffixLength, suffix) == 0;
+    ::OPENSSL_free(name);
+    ::OPENSSL_free(header);
+    ::OPENSSL_free(data);
+    if (isPrivateKey)
+      return true;
+  }
+}
+} // anonymous namespace
+#endif
+
 boost::optional<PKey> BIO::readPemPrivateKey(PemPasswordCallback passwordCb)
 {
   ::ERR_clear_error();
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+  const auto startPosition = BIO_tell(get());
+#endif
   auto key = ::PEM_read_bio_PrivateKey(get(),
       nullptr, // EVP_PKEY object used for initialization
       passwordCb.callback, passwordCb.userData
@@ -121,6 +161,25 @@ boost::optional<PKey> BIO::readPemPrivateKey(PemPasswordCallback passwordCb)
       ::ERR_clear_error();
       return {};
     }
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    // With OpenSSL 3, `PEM_read_bio_PrivateKey` reports the same "unsupported"
+    // decoder error when there is no key in the PEM and when the key cannot be
+    // decoded: look for a private key block to tell them apart.
+    if (ERR_GET_LIB(err) == ERR_LIB_OSSL_DECODER
+        && ERR_GET_REASON(err) == ERR_R_UNSUPPORTED
+        && startPosition >= 0
+        && BIO_seek(get(), startPosition) >= 0)
+    {
+      ::ERR_set_mark();
+      const bool hasPrivateKey = hasPemPrivateKeyBlock(get());
+      ::ERR_pop_to_mark();
+      if (!hasPrivateKey)
+      {
+        ::ERR_clear_error();
+        return {};
+      }
+    }
+#endif
     throw Error::fromCurrentError("could not read private key from PEM");
   }
   return PKey(key);
