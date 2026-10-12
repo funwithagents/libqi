@@ -6,6 +6,27 @@
 #include <ka/macro.hpp>
 #include "test_future.hpp"
 
+namespace
+{
+  // Overloading the eventloop with tasks that sleep makes its growth depend on
+  // how long sleeps actually last, which varies a lot between machines (e.g.
+  // `sleep_for(10ms)` can last 20-50ms on CI virtual machines). Instead, post
+  // tasks that block until released, so that the eventloop stays overloaded
+  // as long as needed, whatever the machine.
+  void postBlockingTask(qi::EventLoopAsio& ev, const std::atomic<bool>& released)
+  {
+    ev.asyncCall(qi::Duration{0}, [&released]() {
+      while (!released.load())
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    });
+  }
+
+  // Deadlines of the loops waiting for the eventloop to grow or shrink, so that
+  // the tests fail instead of hanging.
+  const auto growthTimeout = std::chrono::seconds{30};
+  const auto shrinkTimeout = std::chrono::seconds{60};
+}
+
 int ping(int v)
 {
   if (v>= 0)
@@ -140,7 +161,11 @@ TEST(EventLoopAsio, CannotGoAboveMaximumThreadCount)
   auto _ = ka::scoped([&]() {
     os::setenv("QI_EVENTLOOP_MAX_TIMEOUTS", oldMaxTimeouts.c_str());
   });
+  // Declared before the eventloop, as its tasks use it until it is destroyed.
+  std::atomic<bool> released{false};
   EventLoopAsio ev{threadCount, minThreadCount, maxThreadCount, "youp", spawnOnOverload};
+  // Release the tasks before the eventloop destruction waits for them.
+  auto releaseTasks = ka::scoped([&]() { released.store(true); });
 
   // 2) Register callback
   std::atomic<bool> emergencyCalled{false};
@@ -152,12 +177,6 @@ TEST(EventLoopAsio, CannotGoAboveMaximumThreadCount)
   // We're going to keep track of the thread counts.
   std::vector<int> threadCounts{threadCount};
 
-  auto postTask = [](EventLoopAsio& ev) {
-    ev.asyncCall(Duration{0}, []() {
-      std::this_thread::sleep_for(std::chrono::milliseconds{100});
-    });
-  };
-
   auto pushIfDistinctThreadCount = [&threadCounts](const EventLoopAsio& ev) {
     const auto n = ev.workerCount();
     if (n != threadCounts.back())
@@ -167,9 +186,12 @@ TEST(EventLoopAsio, CannotGoAboveMaximumThreadCount)
   };
 
   // Spam the eventloop until the thread count goes up to the maximum.
+  const auto deadline = std::chrono::steady_clock::now() + growthTimeout;
   while (!emergencyCalled.load())
   {
-    postTask(ev);
+    ASSERT_LT(std::chrono::steady_clock::now(), deadline)
+      << "the eventloop did not reach its maximum size, current size: " << ev.workerCount();
+    postBlockingTask(ev, released);
     pushIfDistinctThreadCount(ev);
     std::this_thread::sleep_for(std::chrono::milliseconds{10});
   }
@@ -197,19 +219,27 @@ TEST(EventLoopAsio, DynamicShrinking)
   const int maxThreadCount = 8;
   const int threadCount = 4;
   const bool spawnOnOverload = true;
+  // Declared before the eventloop, as its tasks use it until it is destroyed.
+  std::atomic<bool> released{false};
   EventLoopAsio ev{threadCount, minThreadCount, maxThreadCount, "youp", spawnOnOverload};
+  // Release the tasks before the eventloop destruction waits for them.
+  auto releaseTasks = ka::scoped([&]() { released.store(true); });
 
   // We're going to keep track of the thread counts.
   std::vector<int> threadCounts{threadCount};
 
   // Spam the eventloop until the thread count goes up to the maximum.
+  const auto growthDeadline = std::chrono::steady_clock::now() + growthTimeout;
   while (ev.workerCount() != maxThreadCount)
   {
-    ev.asyncCall(Duration{0}, []() {
-      std::this_thread::sleep_for(std::chrono::milliseconds{100});
-    });
+    ASSERT_LT(std::chrono::steady_clock::now(), growthDeadline)
+      << "the eventloop did not reach its maximum size, current size: " << ev.workerCount();
+    postBlockingTask(ev, released);
     std::this_thread::sleep_for(std::chrono::milliseconds{10});
   }
+
+  // Release the tasks, so that the eventloop becomes idle and can shrink.
+  released.store(true);
 
   auto pushIfDistinctThreadCount = [&threadCounts](EventLoopAsio const& ev) {
     const auto n = ev.workerCount();
@@ -221,8 +251,11 @@ TEST(EventLoopAsio, DynamicShrinking)
 
   // Wait until the thread count goes back down to the minimum, recording the
   // distinct thread counts.
+  const auto shrinkDeadline = std::chrono::steady_clock::now() + shrinkTimeout;
   while (ev.workerCount() != minThreadCount)
   {
+    ASSERT_LT(std::chrono::steady_clock::now(), shrinkDeadline)
+      << "the eventloop did not shrink to its minimum size, current size: " << ev.workerCount();
     pushIfDistinctThreadCount(ev);
     std::this_thread::sleep_for(std::chrono::milliseconds{10});
   }
