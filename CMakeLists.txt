@@ -104,9 +104,13 @@ endif()
 # This is required by the SDK layout implementation.
 # Also write a "path.conf" file, which is required for executing some tests.
 set(sdk_dir "${CMAKE_BINARY_DIR}/sdk")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${sdk_dir}/bin")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${sdk_dir}/lib")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${sdk_dir}/lib")
+# The empty generator expression (`$<0:>`) prevents multi-config generators
+# (e.g. Visual Studio) from adding a per-configuration subdirectory (e.g.
+# `sdk/bin/Release`), which would break the SDK layout used to find the
+# libraries, modules and executables at runtime.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${sdk_dir}/bin$<0:>")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${sdk_dir}/lib$<0:>")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${sdk_dir}/lib$<0:>")
 set(path_conf_dir "${sdk_dir}/share/qi")
 set(path_conf_file_path "${path_conf_dir}/path.conf")
 if(NOT EXISTS "${path_conf_file_path}")
