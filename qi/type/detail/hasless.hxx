@@ -13,6 +13,7 @@
 #include <boost/optional.hpp>
 #include <boost/type_traits/has_less.hpp>
 #include <map>
+#include <optional>
 #include <set>
 #include <tuple>
 
@@ -71,10 +72,13 @@ namespace detail
   template<typename T>
   struct HasLess<boost::optional<T>> : HasLess<T> {};
 
-#if QI_HAS_STD_OPTIONAL
+  // Not conditioned by QI_HAS_STD_OPTIONAL, which is defined in another header
+  // that may not be included yet (std::optional is always available, as C++17
+  // is required). Without this specialization, HasLess relies on
+  // std::optional's operator<, which MSVC does not constrain: types that are
+  // not comparable would then be considered comparable.
   template<typename T>
   struct HasLess<std::optional<T>> : HasLess<T> {};
-#endif
 
   template<typename T>
   struct LessDeref
