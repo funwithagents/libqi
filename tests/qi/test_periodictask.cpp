@@ -1,3 +1,4 @@
+#include <atomic>
 #include <gtest/gtest.h>
 #include <qi/periodictask.hpp>
 #include "test_future.hpp"
@@ -74,13 +75,25 @@ TEST(TestPeriodicTask, Basic)
 TEST(TestPeriodicTask, Stop)
 {
   qi::PeriodicTask pt;
-  pt.setCallback([]{ std::this_thread::sleep_for(std::chrono::milliseconds{500}); });
+  qi::Promise<void> started;
+  std::atomic<bool> finished{false};
+  pt.setCallback([&]{
+    if (started.future().isRunning())
+      started.setValue(nullptr);
+    std::this_thread::sleep_for(std::chrono::milliseconds{500});
+    finished = true;
+  });
   pt.setUsPeriod(10000000);
+  // The callback cannot start before this point (measuring from a later point,
+  // after a sleep, depends on how long the sleep actually lasts).
+  const qi::int64_t beforeStart = qi::os::ustime();
   pt.start();
-  std::this_thread::sleep_for(std::chrono::milliseconds{100}); // wait for actual start
-  qi::int64_t now = qi::os::ustime();
+  // Wait for the callback to actually start.
+  ASSERT_EQ(qi::FutureState_FinishedWithValue, started.future().wait(qi::Seconds{5}));
   pt.stop();
-  EXPECT_LE(300000, qi::os::ustime() - now);
+  // stop() waited for the callback in progress.
+  EXPECT_TRUE(finished);
+  EXPECT_LE(500000, qi::os::ustime() - beforeStart);
 }
 
 
