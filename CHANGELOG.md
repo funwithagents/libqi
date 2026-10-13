@@ -1,6 +1,13 @@
 libqi Change Log
 =================
 
+libqi 4.0.8
+-----------
+
+This minor release fixes the connection to servers that do not support
+authentication (e.g. NAOqi 2.1), several bugs found by running the tests on
+Linux, macOS and Windows, and replaces the deprecated `std::result_of`.
+
 libqi 4.0.7
 -----------
 
