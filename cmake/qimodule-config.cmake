@@ -87,7 +87,12 @@ function(qi_create_module name)
     "${target}"
     PROPERTIES
       OUTPUT_NAME "${module_name}"
-      LIBRARY_OUTPUT_DIRECTORY "${lib_dir}"
+      # On Windows, the DLL of a shared library is a runtime artifact: put it
+      # in the same directory, as the modules are searched there. The empty
+      # generator expression prevents multi-config generators from adding a
+      # per-configuration subdirectory.
+      LIBRARY_OUTPUT_DIRECTORY "${lib_dir}$<0:>"
+      RUNTIME_OUTPUT_DIRECTORY "${lib_dir}$<0:>"
   )
 
 
@@ -201,7 +206,12 @@ function(qi_add_module name)
     "${name}"
     PROPERTIES
       OUTPUT_NAME "${module_name}"
-      LIBRARY_OUTPUT_DIRECTORY "${lib_dir}"
+      # On Windows, the DLL of a shared library is a runtime artifact: put it
+      # in the same directory, as the modules are searched there. The empty
+      # generator expression prevents multi-config generators from adding a
+      # per-configuration subdirectory.
+      LIBRARY_OUTPUT_DIRECTORY "${lib_dir}$<0:>"
+      RUNTIME_OUTPUT_DIRECTORY "${lib_dir}$<0:>"
   )
 
   set(mod_file_name "${name}.mod")
