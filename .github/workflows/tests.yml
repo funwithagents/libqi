@@ -31,8 +31,14 @@ jobs:
           - name: linux-x86_64
             os: ubuntu-24.04
             cppstd: gnu17
+          - name: linux-aarch64
+            os: ubuntu-24.04-arm
+            cppstd: gnu17
           - name: macos-arm64
             os: macos-15
+            cppstd: gnu17
+          - name: macos-x86_64
+            os: macos-15-intel
             cppstd: gnu17
           - name: windows-x64
             os: windows-2025

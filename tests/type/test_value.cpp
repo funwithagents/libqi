@@ -724,24 +724,24 @@ TEST(Value, Overflow)
     (void)test; //remove unused warning
   }
   long twelve = 12;
-  AnyReference::from(12).to<char>();
+  AnyReference::from(12).to<signed char>();
   ASSERT_EQ(12,AnyReference::from(twelve).to<qi::int64_t>());
-  AnyReference::from(127).to<char>();
-  ASSERT_ANY_THROW(AnyReference::from(128).to<char>());
-  AnyReference::from(-128).to<char>();
-  ASSERT_ANY_THROW(AnyReference::from(254).to<char>());
+  AnyReference::from(127).to<signed char>();
+  ASSERT_ANY_THROW(AnyReference::from(128).to<signed char>());
+  AnyReference::from(-128).to<signed char>();
+  ASSERT_ANY_THROW(AnyReference::from(254).to<signed char>());
   AnyReference::from(255).to<unsigned char>();
   AnyReference::from(0xFF11223344).to<qi::int64_t>();
   AnyReference::from(0xFF11223344).to<qi::uint64_t>();
   ASSERT_ANY_THROW(AnyReference::from(256).to<unsigned char>());
   ASSERT_ANY_THROW(AnyReference::from(-1).to<unsigned char>());
   // check correct sign propagation
-  ASSERT_EQ(-120, AnyReference::from((char)-120).to<int>());
+  ASSERT_EQ(-120, AnyReference::from((signed char)-120).to<int>());
   AnyReference::from(12).to<double>();
   AnyReference::from(13).to<float>();
   ASSERT_ANY_THROW(AnyReference::from(-5.0).to<unsigned int>());
   ASSERT_ANY_THROW(AnyReference::from(-5.0f).to<unsigned int>());
-  ASSERT_ANY_THROW(AnyReference::from(-256.0).to<char>());
+  ASSERT_ANY_THROW(AnyReference::from(-256.0).to<signed char>());
   ASSERT_ANY_THROW(AnyReference::from(256.0).to<unsigned char>());
   ASSERT_ANY_THROW(AnyReference::from(1.0e80).to<qi::uint64_t>());
   ASSERT_TRUE(AnyReference::from((qi::uint32_t)0xFF223344).to<double>() > 0);
@@ -749,8 +749,8 @@ TEST(Value, Overflow)
   ASSERT_TRUE(AnyReference::from(0xFF22334455667788ULL).to<double>() > 0);
   ASSERT_TRUE(AnyReference::from((qi::int64_t)0xFF22334455667788).to<double>() < 0);
   // check other access path
-  ASSERT_ANY_THROW(AnyValue::make<char>().setInt(128));
-  ASSERT_ANY_THROW(AnyValue::make<char>().update(AnyReference::from(128)));
+  ASSERT_ANY_THROW(AnyValue::make<signed char>().setInt(128));
+  ASSERT_ANY_THROW(AnyValue::make<signed char>().update(AnyReference::from(128)));
 }
 
 TEST(Value, Convert_ListToTuple)

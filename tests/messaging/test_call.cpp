@@ -1002,7 +1002,7 @@ TEST(TestCall, TestConcreteObjectPassingReturn)
   ASSERT_EQ(3, test.call<int>("ping", 2));
 }
 
-char          pingChar(char v) { return v; }
+signed char   pingChar(signed char v) { return v; }
 unsigned char pingUChar(unsigned char v) { return v;}
 int           pingInt(int v) { return v;}
 int           pingUInt(unsigned int v) { return v;}
@@ -1041,8 +1041,8 @@ TEST(TestCall, Overflow)
   try
   {
     // Return cast check
-    EXPECTTHROW(client.call<char>("pingInt", 256));
-    EXPECTTHROW(client.call<char>("pingInt", 128));
+    EXPECTTHROW(client.call<signed char>("pingInt", 256));
+    EXPECTTHROW(client.call<signed char>("pingInt", 128));
     EXPECTTHROW(client.call<unsigned char>("pingInt", -1));
     EXPECTTHROW(client.call<unsigned int>("pingInt", -1));
     // call arg check
