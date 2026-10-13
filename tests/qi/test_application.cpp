@@ -107,14 +107,18 @@ TEST(TestSearchExecutableAbsolutePath, NotExistingExecutableFromEnvironmentPaths
 TEST(TestSearchExecutableAbsolutePath, RootPathDoesNotChange)
 {
   qi::path::ScopedDir tmpDir;
-  const auto tmpAbsoluteFilePath = qi::Path("/");
+  // The root of the current drive on Windows ("/" alone is relative to it).
+  const auto tmpAbsoluteFilePath =
+    qi::Path::fromNative(boost::filesystem::current_path().root_path().make_preferred().string().c_str());
   EXPECT_EQ(tmpAbsoluteFilePath, qi::details::searchExecutableAbsolutePath(tmpAbsoluteFilePath));
 }
 
 TEST(TestSearchExecutableAbsolutePath, FileInRootPathDoesNotChange)
 {
   qi::path::ScopedDir tmpDir;
-  const auto tmpAbsoluteFilePath = qi::Path("/foo");
+  // In the root of the current drive on Windows ("/foo" is relative to it).
+  const auto tmpAbsoluteFilePath = qi::Path::fromNative(
+    (boost::filesystem::current_path().root_path() / "foo").make_preferred().string().c_str());
   EXPECT_EQ(tmpAbsoluteFilePath, qi::details::searchExecutableAbsolutePath(tmpAbsoluteFilePath));
 }
 
