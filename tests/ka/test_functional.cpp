@@ -201,8 +201,12 @@ TEST(FunctionalCompose, Regular) {
   using namespace ka;
   using namespace std;
   using C = composition_t<string (*)(bool), bool (*)(float)>;
+  // Lambdas, as std::isnan, ... are overloaded (and templates with MSVC).
+  bool (*const isNan)(float) = [](float x) { return std::isnan(x); };
+  bool (*const isFinite)(float) = [](float x) { return std::isfinite(x); };
+  bool (*const isInf)(float) = [](float x) { return std::isinf(x); };
   ASSERT_TRUE(is_regular({
-    C{strbool0, isnan}, C{strbool0, isfinite}, C{strbool1, isinf}
+    C{strbool0, isNan}, C{strbool0, isFinite}, C{strbool1, isInf}
   }));
 }
 

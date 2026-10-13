@@ -4,6 +4,12 @@ endif()
 
 find_package(GTest REQUIRED)
 
+if(MSVC)
+  # Some test files have more sections than the default object file format
+  # allows (error C1128).
+  add_compile_options(/bigobj)
+endif()
+
 ##############################################################################
 # Library: testutils
 ##############################################################################

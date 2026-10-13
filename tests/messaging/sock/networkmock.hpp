@@ -401,19 +401,35 @@ KA_WARNING_POP()
     }
   };
 
+  // Defined below.
+  template<typename NetSslSocket>
+  inline void defaultAsyncReadSocket(NetSslSocket&, Network::_mutable_buffer_sequence,
+                                     Network::_anyTransferHandler h);
+  template<typename NetSslSocket>
+  inline void defaultAsyncWriteSocket(NetSslSocket&, const std::vector<Network::_const_buffer_sequence>&,
+                                      Network::_anyTransferHandler h);
+
+  // The explicit specializations of the static data members are defined here
+  // as inline variables: MSVC considers a declaration of such a specialization
+  // without initializer as a definition, so it cannot be declared here and
+  // defined in a source file.
   template <>
-  Network::_anyAsyncReaderSocket<Network::ssl_socket_type>
-    Network::SocketFunctions<Network::ssl_socket_type>::_async_read_socket;
+  inline Network::_anyAsyncReaderSocket<Network::ssl_socket_type>
+    Network::SocketFunctions<Network::ssl_socket_type>::_async_read_socket =
+      defaultAsyncReadSocket<Network::ssl_socket_type>;
   template <>
-  Network::_anyAsyncReaderSocket<qi::sock::SocketWithContext<Network>>
-    Network::SocketFunctions<qi::sock::SocketWithContext<Network>>::_async_read_socket;
+  inline Network::_anyAsyncReaderSocket<qi::sock::SocketWithContext<Network>>
+    Network::SocketFunctions<qi::sock::SocketWithContext<Network>>::_async_read_socket =
+      defaultAsyncReadSocket<qi::sock::SocketWithContext<Network>>;
 
   template <>
-  Network::_anyAsyncWriterSocket<Network::ssl_socket_type>
-    Network::SocketFunctions<Network::ssl_socket_type>::_async_write_socket;
+  inline Network::_anyAsyncWriterSocket<Network::ssl_socket_type>
+    Network::SocketFunctions<Network::ssl_socket_type>::_async_write_socket =
+      defaultAsyncWriteSocket<Network::ssl_socket_type>;
   template <>
-  Network::_anyAsyncWriterSocket<qi::sock::SocketWithContext<Network>>
-      Network::SocketFunctions<qi::sock::SocketWithContext<Network>>::_async_write_socket;
+  inline Network::_anyAsyncWriterSocket<qi::sock::SocketWithContext<Network>>
+    Network::SocketFunctions<qi::sock::SocketWithContext<Network>>::_async_write_socket =
+      defaultAsyncWriteSocket<qi::sock::SocketWithContext<Network>>;
 
 } // namespace mock
 

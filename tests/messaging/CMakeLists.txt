@@ -114,35 +114,40 @@ qi_create_test(test_applicationsessionnoautoexit SRC test_applicationsession_noa
 # Broken!
 #qi_create_test(test_application SRC "test_messaging_application_exit.cpp" DEPENDS qi)
 
-qi_create_test(
-  test_messaging_internal
+# Not built with MSVC: it links the objects of the qi library (to test internal
+# symbols), while its dependencies (testutils, testssl) link the qi DLL, so the
+# qi symbols are defined twice (error LNK2005). Linux and macOS cover it.
+if(NOT MSVC)
+  qi_create_test(
+    test_messaging_internal
 
-  "test_messaging_internal.cpp"
-  "test_remoteobject.cpp"
-  "test_tcpscheme.cpp"
-  "test_transportsocketcache.cpp"
-  "sock/networkmock.cpp"
-  "sock/networkmock.hpp"
-  "sock/networkcommon.hpp"
-  "sock/networkasionooplock.hpp"
-  "sock/test_accept.cpp"
-  "sock/test_connect.cpp"
-  "sock/test_resolve.cpp"
-  "sock/test_receive.cpp"
-  "sock/test_send.cpp"
-  "test_tcpmessagesocket.cpp"
-  "test_appsession_internal.cpp"
-  "test_servicedirectory.cpp"
+    "test_messaging_internal.cpp"
+    "test_remoteobject.cpp"
+    "test_tcpscheme.cpp"
+    "test_transportsocketcache.cpp"
+    "sock/networkmock.cpp"
+    "sock/networkmock.hpp"
+    "sock/networkcommon.hpp"
+    "sock/networkasionooplock.hpp"
+    "sock/test_accept.cpp"
+    "sock/test_connect.cpp"
+    "sock/test_resolve.cpp"
+    "sock/test_receive.cpp"
+    "sock/test_send.cpp"
+    "test_tcpmessagesocket.cpp"
+    "test_appsession_internal.cpp"
+    "test_servicedirectory.cpp"
 
-  DEPENDS
-  # Links with qi_objects because it needs internal symbols.
-  qi::internal::qi_objects
-  qi::testutils
-  qi::testssl
-  GTest::gmock
+    DEPENDS
+    # Links with qi_objects because it needs internal symbols.
+    qi::internal::qi_objects
+    qi::testutils
+    qi::testssl
+    GTest::gmock
 
-  TIMEOUT 120
-)
+    TIMEOUT 120
+  )
+endif()
 
 qi_create_test(
   test_url
