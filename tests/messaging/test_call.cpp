@@ -1002,7 +1002,7 @@ TEST(TestCall, TestConcreteObjectPassingReturn)
   ASSERT_EQ(3, test.call<int>("ping", 2));
 }
 
-char          pingChar(char v) { return v; }
+signed char   pingChar(signed char v) { return v; }
 unsigned char pingUChar(unsigned char v) { return v;}
 int           pingInt(int v) { return v;}
 int           pingUInt(unsigned int v) { return v;}
