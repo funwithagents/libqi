@@ -1041,8 +1041,8 @@ TEST(TestCall, Overflow)
   try
   {
     // Return cast check
-    EXPECTTHROW(client.call<char>("pingInt", 256));
-    EXPECTTHROW(client.call<char>("pingInt", 128));
+    EXPECTTHROW(client.call<signed char>("pingInt", 256));
+    EXPECTTHROW(client.call<signed char>("pingInt", 128));
     EXPECTTHROW(client.call<unsigned char>("pingInt", -1));
     EXPECTTHROW(client.call<unsigned int>("pingInt", -1));
     // call arg check
