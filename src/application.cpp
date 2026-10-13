@@ -152,6 +152,21 @@ namespace qi {
     if (boostPath.is_relative() && !boostPath.has_parent_path())
     {
       environmentPaths.insert(environmentPaths.begin(), currentDirectory);
+#ifdef _WIN32
+      // On Windows, boost::process::search_path appends each extension of
+      // PATHEXT to the name, even if it already has one: "app.exe" is searched
+      // as "app.exe.COM", "app.exe.EXE", ... but never as "app.exe".
+      if (boostPath.has_extension())
+      {
+        for (const auto& directory : environmentPaths)
+        {
+          const auto candidate = directory / boostPath;
+          boost::system::error_code error;
+          if (bfs::is_regular_file(candidate, error))
+            return bfs::absolute(candidate).make_preferred();
+        }
+      }
+#endif
       return boost::process::search_path(boostPath, environmentPaths).make_preferred();
     }
     return bfs::absolute(boostPath, currentDirectory).make_preferred();
