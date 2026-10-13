@@ -33,13 +33,6 @@ jobs:
             os: ubuntu-24.04
           - name: macos-arm64
             os: macos-15
-    env:
-      # Tests failing because of known library bugs, to fix:
-      # - QiService.RemoteServiceRegistrationAfterDisconnection: Session::close()
-      #   does not wait for the service directory to unregister the services, so
-      #   registering them again right after reconnecting can be rejected.
-      GTEST_EXCLUDE: QiService.RemoteServiceRegistrationAfterDisconnection
-
     steps:
       - uses: actions/checkout@v7
 
@@ -79,8 +72,6 @@ jobs:
       # The Conan run environment puts the dependencies shared libraries in the
       # library path.
       - name: Test
-        env:
-          GTEST_FILTER: -${{ env.GTEST_EXCLUDE }}
         run: |
           source build/ci/generators/conanrun.sh
           ctest --test-dir build/ci --output-on-failure --test-output-size-failed 10000000
